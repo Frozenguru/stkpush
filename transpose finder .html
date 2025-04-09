@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transpose Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #noteDisplay {
+            font-size: 32px;
+            color: #333;
+            margin-top: 20px;
+        }
+
+        #startButton {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        #startButton:disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Transpose Finder</h1>
+    <p>Click "Start Recording" to detect pitch</p>
+    <button id="startButton">Start Recording</button>
+    <div id="noteDisplay">Detected Note: N/A</div>
+</div>
+
+<script>
+    // Frequency to note mapping
+    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    
+    // Pitch detection using Web Audio API
+    let audioContext, analyser, microphone;
+    let isRecording = false;
+
+    function startRecording() {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.fftSize = 2048;
+
+                isRecording = true;
+                document.getElementById('startButton').disabled = true;
+
+                detectPitch();
+            })
+            .catch(error => {
+                console.error('Error accessing microphone:', error);
+            });
+    }
+
+    function detectPitch() {
+        if (isRecording) {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            let maxIndex = 0;
+            let maxValue = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                if (dataArray[i] > maxValue) {
+                    maxValue = dataArray[i];
+                    maxIndex = i;
+                }
+            }
+
+            const frequency = maxIndex * audioContext.sampleRate / analyser.fftSize;
+            const note = getNoteFromFrequency(frequency);
+
+            document.getElementById('noteDisplay').innerText = `Detected Note: ${note}`;
+            requestAnimationFrame(detectPitch);
+        }
+    }
+
+    function getNoteFromFrequency(frequency) {
+        const midiNote = 69 + 12 * Math.log2(frequency / 440);
+        const noteIndex = Math.round(midiNote) % 12;
+        return notes[noteIndex];
+    }
+
+    document.getElementById('startButton').addEventListener('click', startRecording);
+</script>
+
+</body>
+</html>
